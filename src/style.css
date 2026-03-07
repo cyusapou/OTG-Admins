@@ -1,0 +1,445 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg:          #0a0a0a;
+  --surface:     #141414;
+  --green:       #22c55e;
+  --green-dark:  #16a34a;
+  --green-muted: rgba(34, 197, 94, 0.08);
+  --text:        rgba(255, 255, 255, 0.85);
+  --text-muted:  rgba(255, 255, 255, 0.4);
+  --text-dim:    rgba(255, 255, 255, 0.25);
+  --border:      rgba(255, 255, 255, 0.07);
+  --hover:       rgba(255, 255, 255, 0.03);
+  --glow:        0 0 20px rgba(34, 197, 94, 0.10);
+  --bg-primary:   #0a0a0a;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary:  #141414;
+  --text-primary:   rgba(255, 255, 255, 0.85);
+  --text-secondary: rgba(255, 255, 255, 0.4);
+  --text-tertiary:  rgba(255, 255, 255, 0.4);
+  --border-color: rgba(255, 255, 255, 0.07);
+  --card-bg:           #141414;
+  --card-shadow:       none;
+  --card-hover-shadow: 0 0 20px rgba(34, 197, 94, 0.06);
+  --input-bg:     #0a0a0a;
+  --input-border: rgba(255, 255, 255, 0.07);
+  --primary-green:       #22c55e;
+  --primary-green-light: #22c55e;
+  --primary-green-dark:  #16a34a;
+  --primary-green-bg:    rgba(34, 197, 94, 0.08);
+  --accent-blue:         #22c55e;
+  --danger:       #ef4444;
+  --danger-bg:    rgba(239, 68, 68, 0.08);
+}
+
+html.light {
+  color-scheme: light;
+  --bg:          #f5f5f5;
+  --surface:     #ffffff;
+  --green:       #16a34a;
+  --green-dark:  #15803d;
+  --green-muted: rgba(22, 163, 74, 0.08);
+  --text:        #1a1a1a;
+  --text-muted:  #6b7280;
+  --text-dim:    #9ca3af;
+  --border:      rgba(0, 0, 0, 0.08);
+  --hover:       rgba(0, 0, 0, 0.02);
+  --glow:        0 2px 12px rgba(0, 0, 0, 0.06);
+  --bg-primary:   #f5f5f5;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary:  #ffffff;
+  --text-primary:   #1a1a1a;
+  --text-secondary: #6b7280;
+  --text-tertiary:  #9ca3af;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --card-bg:           #ffffff;
+  --card-shadow:       0 1px 3px rgba(0, 0, 0, 0.06);
+  --card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --input-bg:     #f5f5f5;
+  --input-border: rgba(0, 0, 0, 0.12);
+  --primary-green:       #16a34a;
+  --primary-green-light: #22c55e;
+  --primary-green-dark:  #15803d;
+  --primary-green-bg:    rgba(22, 163, 74, 0.06);
+  --accent-blue:         #16a34a;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+html.light { color-scheme: light; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s, color 0.25s;
+}
+
+#app {
+  min-height: 100vh;
+  background: var(--bg);
+  transition: background-color 0.25s;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
+  transition: background-color 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+.card:hover { box-shadow: var(--card-hover-shadow); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+.fade-in { animation: fadeIn 0.3s ease-in; }
+.slide-down { animation: slideDown 0.3s ease-in; }
+.slide-up { animation: slideUp 0.3s ease-in; }
+
+input, select, textarea {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text);
+  transition: background-color 0.25s, border-color 0.25s, color 0.25s;
+}
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ═══════════════════════════════════════════════
+   LIGHT MODE OVERRIDES FOR SCOPED STYLES
+   These use !important to override hardcoded hex
+   values inside Vue scoped <style> blocks.
+   ═══════════════════════════════════════════════ */
+
+/* ── Portal Layout ─────────────────────────── */
+html.light .portal-shell { background: var(--bg) !important; color: var(--text) !important; }
+html.light .portal-sidebar { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 1px 0 3px rgba(0,0,0,0.04) !important; }
+html.light .portal-header { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important; }
+html.light .sidebar-brand { border-color: var(--border) !important; }
+html.light .brand-name { color: var(--text) !important; }
+html.light .brand-role { color: var(--text-muted) !important; }
+html.light .brand-icon { background: var(--green-muted) !important; }
+html.light .sidebar-link { color: var(--text-muted) !important; }
+html.light .sidebar-link:hover { background: rgba(0,0,0,0.04) !important; color: var(--text) !important; }
+html.light .sidebar-link--active { background: var(--green) !important; color: #fff !important; }
+html.light .sidebar-link--active:hover { background: var(--green-dark) !important; }
+html.light .link-badge { background: var(--green) !important; color: #fff !important; }
+html.light .sidebar-link--active .link-badge { background: rgba(255,255,255,0.25) !important; }
+html.light .sidebar-bottom { border-color: var(--border) !important; }
+html.light .sidebar-toggle, html.light .sidebar-logout { color: var(--text-muted) !important; }
+html.light .sidebar-toggle:hover, html.light .sidebar-logout:hover { background: rgba(0,0,0,0.04) !important; color: var(--text) !important; }
+html.light .page-title { color: var(--text) !important; }
+html.light .theme-btn { border-color: var(--border) !important; color: var(--text-muted) !important; background: transparent !important; }
+html.light .theme-btn:hover { color: #6366f1 !important; background: rgba(0,0,0,0.03) !important; }
+html.light .notif-btn { border-color: var(--border) !important; color: var(--text-muted) !important; background: transparent !important; }
+html.light .notif-btn:hover { background: rgba(0,0,0,0.03) !important; color: var(--green) !important; }
+html.light .notif-badge { border-color: var(--surface) !important; }
+html.light .user-avatar { background: var(--green-muted) !important; }
+html.light .user-name { color: var(--text) !important; }
+html.light .user-role { color: var(--text-muted) !important; }
+html.light .portal-content { background: var(--bg) !important; }
+
+/* ── DataTable ─────────────────────────────── */
+html.light .data-table { border-color: var(--border) !important; }
+html.light .dt-wrapper { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .dt-table thead { background: var(--bg) !important; }
+html.light .dt-table thead th { color: var(--text-muted) !important; border-color: var(--border) !important; background: var(--bg) !important; }
+html.light .dt-table tbody tr { border-color: var(--border) !important; }
+html.light .dt-table tbody tr:hover { background: rgba(0,0,0,0.02) !important; }
+html.light .dt-table tbody td { color: var(--text) !important; border-color: var(--border) !important; }
+html.light .table-header { background: var(--bg) !important; }
+html.light .table-header th { color: var(--text-muted) !important; border-color: var(--border) !important; }
+html.light .table-row { border-color: var(--border) !important; }
+html.light .table-row:hover { background: rgba(0,0,0,0.02) !important; }
+html.light .table-row td { color: var(--text) !important; }
+html.light .dt-empty, html.light .dt-empty-title { color: var(--text-muted) !important; }
+html.light .dt-error { color: #ef4444 !important; }
+html.light .dt-pagination { border-color: var(--border) !important; }
+html.light .dt-pagination button { background: var(--surface) !important; color: var(--text-muted) !important; border-color: var(--border) !important; }
+html.light .dt-pagination button.active,
+html.light .dt-pagination button:hover { background: var(--green) !important; color: #fff !important; }
+html.light .skel-cell { background: var(--bg) !important; }
+html.light .empty-state { color: var(--text-muted) !important; }
+html.light .empty-icon { color: var(--green) !important; }
+html.light .skeleton-row { background: var(--bg) !important; }
+html.light .pagination-btn { background: var(--surface) !important; color: var(--text-muted) !important; border-color: var(--border) !important; }
+html.light .pagination-btn.active { background: var(--green) !important; color: #fff !important; }
+
+/* ── StatCard ──────────────────────────────── */
+html.light .stat-card { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; }
+html.light .stat-icon { background: var(--green-muted) !important; }
+html.light .stat-label { color: var(--text-muted) !important; }
+html.light .stat-value { color: var(--text) !important; }
+
+/* ── StatusBadge ───────────────────────────── */
+html.light .muted { color: var(--text-muted) !important; }
+
+/* ── Forms ─────────────────────────────────── */
+html.light .form-card { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; }
+html.light .form-card label { color: var(--text-muted) !important; }
+html.light .form-card input,
+html.light .form-card select,
+html.light .form-card textarea { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .form-card input::placeholder,
+html.light .form-card textarea::placeholder { color: var(--text-dim) !important; }
+html.light .form-card select option { background: var(--surface) !important; color: var(--text) !important; }
+html.light .field label { color: var(--text-muted) !important; }
+html.light .field input,
+html.light .field select,
+html.light .field textarea { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .field input::placeholder,
+html.light .field textarea::placeholder { color: var(--text-dim) !important; }
+html.light .field select option { background: var(--surface) !important; color: var(--text) !important; }
+
+/* ── Section cards ─────────────────────────── */
+html.light .section-card { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .section-header { color: var(--text) !important; border-color: var(--border) !important; }
+
+/* ── Buttons ───────────────────────────────── */
+html.light .btn-primary { background: var(--green) !important; color: #fff !important; }
+html.light .btn-primary:hover { background: var(--green-dark) !important; }
+html.light .btn-secondary { border-color: var(--border) !important; color: var(--text-muted) !important; background: var(--surface) !important; }
+html.light .btn-secondary:hover { border-color: var(--text-muted) !important; color: var(--text) !important; }
+html.light .btn-outline { border-color: var(--border) !important; color: var(--text-muted) !important; background: transparent !important; }
+html.light .btn-outline:hover { border-color: var(--text-muted) !important; color: var(--text) !important; background: rgba(0,0,0,0.02) !important; }
+html.light .back-link { color: var(--text-muted) !important; }
+html.light .back-link:hover { color: var(--green) !important; }
+
+/* ── Modals ────────────────────────────────── */
+html.light .modal-overlay { background: rgba(0,0,0,0.3) !important; }
+html.light .modal-card { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important; }
+html.light .modal-card h2, html.light .modal-header h2, html.light .modal-header h3 { color: var(--text) !important; }
+html.light .modal-close { border-color: var(--border) !important; color: var(--text-muted) !important; background: transparent !important; }
+html.light .modal-close:hover { background: rgba(0,0,0,0.04) !important; color: var(--text) !important; }
+html.light .modal-sub { color: var(--text-muted) !important; }
+html.light .detail-label { color: var(--text-muted) !important; }
+html.light .detail-value { color: var(--text) !important; }
+html.light .detail-value.mono { color: var(--green) !important; }
+html.light .avatar { background: var(--green-muted) !important; color: var(--green) !important; }
+html.light .role-badge { background: var(--green-muted) !important; color: var(--green) !important; }
+html.light .toggle-pw { color: var(--text-muted) !important; }
+html.light .toggle-pw:hover { color: var(--green) !important; }
+html.light .modal-field label { color: var(--text-muted) !important; }
+html.light .modal-field input,
+html.light .modal-field select,
+html.light .modal-field textarea { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .modal-field input::placeholder,
+html.light .modal-field textarea::placeholder { color: var(--text-dim) !important; }
+
+/* ── Success / Credentials ─────────────────── */
+html.light .success-card { background: var(--surface) !important; border-color: rgba(22,163,74,0.15) !important; box-shadow: 0 2px 12px rgba(0,0,0,0.06) !important; }
+html.light .success-card h2 { color: var(--text) !important; }
+html.light .success-card > p { color: var(--text-muted) !important; }
+html.light .creds-box, html.light .credentials { background: var(--bg) !important; border-color: var(--border) !important; }
+html.light .cred-label { color: var(--text-muted) !important; }
+html.light .cred-val, html.light .cred-value { color: var(--green) !important; }
+html.light .cred-row { border-color: var(--border) !important; }
+html.light .cred-row + .cred-row { border-color: var(--border) !important; }
+
+/* ── Dashboard specific ────────────────────── */
+html.light .stats-grid .stat-card { box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important; }
+html.light .incident-row { border-color: var(--border) !important; }
+html.light .inc-body .inc-title { color: var(--text) !important; }
+html.light .inc-body .inc-date { color: var(--text-muted) !important; }
+html.light .loading-state { color: var(--text-muted) !important; }
+html.light .error-state { color: #ef4444 !important; }
+html.light .empty-state p { color: var(--text-muted) !important; }
+html.light .empty-title { color: var(--text) !important; }
+html.light .retry-btn { color: var(--green) !important; }
+
+/* ── Portal Selector ───────────────────────── */
+html.light .selector-page { background: var(--bg) !important; }
+html.light .selector-brand h1 { color: var(--text) !important; }
+html.light .brand-sub { color: var(--text-muted) !important; }
+html.light .portal-card { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; }
+html.light .portal-card:hover { border-color: var(--green) !important; background: var(--green-muted) !important; box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
+html.light .portal-card h3 { color: var(--text) !important; }
+html.light .portal-card p { color: var(--text-muted) !important; }
+html.light .portal-icon { background: var(--green-muted) !important; }
+html.light .selector-footer p { color: var(--text-dim) !important; }
+
+/* ── Login pages (shared) ──────────────────── */
+html.light .worker-login,
+html.light .driver-login,
+html.light .login-page,
+html.light .cp-page { background: var(--bg) !important; }
+
+html.light .login-logo h1,
+html.light .login-container h1,
+html.light .logo-area h1,
+html.light .logo-section h1 { color: var(--text) !important; }
+
+html.light .portal-label,
+html.light .tagline,
+html.light .logo-section .subtitle { color: var(--text-muted) !important; }
+
+html.light .input-group label,
+html.light .form-group label { color: var(--text-muted) !important; }
+
+html.light .input-wrapper,
+html.light .input-box { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .input-wrapper:focus-within,
+html.light .input-box:focus-within { border-color: var(--green) !important; box-shadow: 0 0 0 3px rgba(22,163,74,0.1) !important; }
+html.light .input-wrapper i,
+html.light .input-box i { color: var(--text-dim) !important; }
+html.light .input-wrapper input,
+html.light .input-box input { color: var(--text) !important; }
+html.light .input-wrapper input::placeholder,
+html.light .input-box input::placeholder { color: var(--text-dim) !important; }
+
+html.light .footer-note { color: var(--text-dim) !important; }
+html.light .error-banner { background: rgba(239,68,68,0.05) !important; border-color: rgba(239,68,68,0.12) !important; }
+html.light .error-msg { color: #ef4444 !important; }
+html.light .err { color: #ef4444 !important; }
+html.light .offline-banner { background: rgba(239,68,68,0.06) !important; }
+
+html.light .logo-circle,
+html.light .logo-icon { background: var(--green-muted) !important; }
+html.light .cp-icon { background: var(--green-muted) !important; }
+html.light .cp-card h2 { color: var(--text) !important; }
+html.light .cp-card > p { color: var(--text-muted) !important; }
+
+/* ── Theme toggle (login/selector pages) ───── */
+html.light .theme-toggle { border-color: var(--border) !important; color: var(--text-muted) !important; background: var(--surface) !important; }
+html.light .theme-toggle:hover { color: #6366f1 !important; background: rgba(0,0,0,0.03) !important; }
+
+/* ── Filters / Search ──────────────────────── */
+html.light .filter-bar { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .filter-bar input,
+html.light .filter-bar select { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .filters select { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .search-input,
+html.light .search-box { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .search-box i { color: var(--text-dim) !important; }
+html.light .search-box input { color: var(--text) !important; background: transparent !important; }
+html.light .search-box input::placeholder { color: var(--text-dim) !important; }
+html.light .filter-group label { color: var(--text-muted) !important; }
+html.light .filter-group select { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+
+/* ── Tabs ──────────────────────────────────── */
+html.light .tab-bar { border-color: var(--border) !important; }
+html.light .tab-btn { color: var(--text-muted) !important; }
+html.light .tab-btn:hover { color: var(--text) !important; }
+html.light .tab-btn.active { color: var(--green) !important; border-color: var(--green) !important; }
+
+/* ── Worker/Driver dashboards & pages ──────── */
+html.light .worker-dashboard,
+html.light .worker-history,
+html.light .worker-manifest,
+html.light .worker-scan,
+html.light .driver-dashboard { background: var(--bg) !important; color: var(--text) !important; }
+html.light .trip-card { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; }
+html.light .trip-card:hover { border-color: var(--green) !important; }
+html.light .trip-route { color: var(--text) !important; }
+html.light .trip-row { color: var(--text-muted) !important; }
+html.light .header-bar { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .scan-page { background: var(--bg) !important; }
+
+/* ── Manager trips ─────────────────────────── */
+html.light .no-driver { color: #ef4444 !important; }
+
+/* ── Amenities/Checkboxes ──────────────────── */
+html.light .amenity-check { color: var(--text) !important; }
+
+/* ── Misc text colors ──────────────────────── */
+html.light .name-cell { color: var(--text) !important; }
+html.light .worker-name { color: var(--text) !important; }
+html.light .plate-cell { color: var(--text) !important; }
+html.light .action-msg.success { background: var(--green-muted) !important; }
+html.light .page-actions .btn-primary { background: var(--green) !important; }
+html.light .desc-text { color: var(--text-muted) !important; }
+
+/* ── Financial / Manager specifics ─────────── */
+html.light .panel { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; }
+html.light .period-toggle button { background: var(--bg) !important; color: var(--text-muted) !important; border-color: var(--border) !important; }
+html.light .period-toggle button.active { background: var(--green) !important; color: #fff !important; }
+html.light .month-label { color: var(--text-muted) !important; }
+html.light .role-label { color: var(--text-muted) !important; }
+html.light .amount { color: var(--text) !important; }
+html.light .severity-tag { border-color: var(--border) !important; }
+
+/* ── Charts ────────────────────────────────── */
+html.light .chart-container,
+html.light .chart-area { background: var(--surface) !important; border-color: var(--border) !important; border-radius: 12px !important; }
+
+/* ── RURA specific ─────────────────────────── */
+html.light .form-section { background: var(--surface) !important; border-color: var(--border) !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important; }
+html.light .form-section label { color: var(--text-muted) !important; }
+html.light .form-section input,
+html.light .form-section select,
+html.light .form-section textarea { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .form-section input::placeholder,
+html.light .form-section textarea::placeholder { color: var(--text-dim) !important; }
+html.light .form-section select option { background: var(--surface) !important; color: var(--text) !important; }
+html.light .credentials-card { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .info-card { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .skel-block { background: var(--bg) !important; }
+
+/* ── Worker specific pages ─────────────────── */
+html.light .log-list { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .schedule-card { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .result-panel { background: var(--surface) !important; }
+html.light .manual-lookup { background: var(--surface) !important; }
+html.light .bottom-bar { background: var(--bg) !important; border-color: var(--border) !important; }
+html.light .action-bar { background: var(--bg) !important; border-color: var(--border) !important; }
+html.light .manifest-header,
+html.light .history-header,
+html.light .scan-header { background: var(--bg) !important; border-color: var(--border) !important; }
+html.light .pax-row { border-color: var(--border) !important; }
+html.light .pax-row:hover { background: rgba(0,0,0,0.02) !important; }
+html.light .pax-name { color: var(--text) !important; }
+html.light .pax-seat { color: var(--text-muted) !important; }
+html.light .summary-bar { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .filter-chip { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+html.light .filter-chip.active { background: var(--green) !important; color: #fff !important; border-color: var(--green) !important; }
+html.light .log-card { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .log-card:hover { background: rgba(0,0,0,0.02) !important; }
+html.light .search-bar { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .search-bar input { background: transparent !important; color: var(--text) !important; }
+html.light .search-bar input::placeholder { color: var(--text-dim) !important; }
+html.light .search-bar i { color: var(--text-dim) !important; }
+html.light .quick-scan-btn { background: var(--surface) !important; border-color: rgba(22,163,74,0.2) !important; }
+html.light .quick-scan-btn:hover { border-color: var(--green) !important; background: var(--green-muted) !important; }
+html.light .scan-title { color: var(--text) !important; }
+html.light .scan-sub { color: var(--text-muted) !important; }
+html.light .scan-arrow { color: var(--text-dim) !important; }
+html.light .icon-btn { background: var(--surface) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
+html.light .bottom-nav { background: var(--surface) !important; border-color: var(--border) !important; }
+html.light .nav-item { color: var(--text-dim) !important; }
+html.light .nav-item.active, html.light .nav-item.router-link-exact-active { color: var(--green) !important; }
+
+/* ── Select option universal fix ───────────── */
+html.light select option { background: var(--surface) !important; color: var(--text) !important; }
+html.light .filters select { background: var(--bg) !important; color: var(--text) !important; border-color: var(--border) !important; }
+html.light .filters select option { background: var(--surface) !important; color: var(--text) !important; }
+
+/* ── Global light text fix for any remaining white text ── */
+html.light h1, html.light h2, html.light h3, html.light h4 { color: var(--text); }
+html.light p { color: var(--text); }
+html.light a { color: var(--green); }
+html.light a:hover { color: var(--green-dark); }
