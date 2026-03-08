@@ -37,6 +37,19 @@
       <template #cell-category="{ row }">
         <span class="category-badge">{{ row.category }}</span>
       </template>
+
+      <template #cell-actions="{ row }">
+        <button
+          type="button"
+          class="btn-remove"
+          :disabled="row._deleting"
+          @click.stop="handleRemoveExpense(row)"
+          title="Remove expense"
+        >
+          <i v-if="row._deleting" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-trash-alt"></i>
+        </button>
+      </template>
     </DataTable>
 
     <teleport to="body">
@@ -105,19 +118,9 @@ import { useAuth } from '../../composables/useAuth.js'
 import { expenseService } from '../../services/expenseService.js'
 import { busService } from '../../services/busService.js'
 import { notificationService } from '../../services/notificationService.js'
+import { navItems } from './managerNav.js'
 
 const auth = useAuth()
-
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
 
 const columns = [
   { key: 'date', label: 'Date' },
@@ -125,6 +128,7 @@ const columns = [
   { key: 'description', label: 'Description' },
   { key: 'amount', label: 'Amount' },
   { key: 'busPlate', label: 'Bus' },
+  { key: 'actions', label: '', width: '80px' },
 ]
 
 const loading = ref(true)
@@ -215,6 +219,19 @@ async function handleSubmitExpense() {
     expError.value = 'Failed to save expense. Please try again.'
   } finally {
     submitting.value = false
+  }
+}
+
+async function handleRemoveExpense(row) {
+  if (!confirm('Remove this expense record?')) return
+  row._deleting = true
+  try {
+    await expenseService.remove(row.id)
+    await loadExpenses()
+  } catch {
+    error.value = 'Failed to remove expense'
+  } finally {
+    row._deleting = false
   }
 }
 
@@ -327,4 +344,12 @@ onMounted(loadExpenses)
 .modal-field select option { background: #141414; color: rgba(255,255,255,0.85); }
 
 .modal-error { color: #ef4444; font-size: 13px; margin-bottom: 12px; }
+
+.btn-remove {
+  padding: 6px 12px; border-radius: 8px; border: none;
+  background: rgba(239,68,68,0.12); color: #ef4444; cursor: pointer;
+  font-size: 13px; transition: background 0.15s;
+}
+.btn-remove:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+.btn-remove:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

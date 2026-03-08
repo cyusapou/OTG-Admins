@@ -118,17 +118,9 @@ import { companyService } from '../../services/companyService.js'
 import { userService } from '../../services/userService.js'
 import { auditLogService } from '../../services/auditLogService.js'
 
-const auth = useAuth()
+import { navItems } from './ruraNav.js'
 
-const navItems = [
-  { path: '/rura', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/rura/companies', icon: 'fas fa-building', label: 'Companies' },
-  { path: '/rura/routes', icon: 'fas fa-road', label: 'Routes' },
-  { path: '/rura/finances', icon: 'fas fa-coins', label: 'Finances' },
-  { path: '/rura/users', icon: 'fas fa-users', label: 'Users' },
-  { path: '/rura/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-  { path: '/rura/audit', icon: 'fas fa-clipboard-list', label: 'Audit Log' },
-]
+const auth = useAuth()
 
 const defaultForm = () => ({
   companyName: '',

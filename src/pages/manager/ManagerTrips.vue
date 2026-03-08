@@ -67,13 +67,25 @@
           </div>
         </div>
 
-        <button
-          v-if="!trip.driverId || !trip.workerId"
-          class="btn-assign"
-          @click="openAssignModal(trip)"
-        >
-          <i class="fas fa-user-plus"></i> Assign
-        </button>
+        <div class="trip-card-actions">
+          <button
+            v-if="!trip.driverId || !trip.workerId"
+            class="btn-assign"
+            @click="openAssignModal(trip)"
+          >
+            <i class="fas fa-user-plus"></i> Assign
+          </button>
+          <button
+            type="button"
+            class="btn-delete-trip-inline"
+            :disabled="trip._deleting"
+            @click.stop="handleDeleteTrip(trip)"
+            title="Delete trip"
+          >
+            <i v-if="trip._deleting" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-trash-alt"></i> Delete
+          </button>
+        </div>
       </div>
     </div>
     </div>
@@ -88,11 +100,11 @@
           <p class="modal-sub">{{ assignModal.routeName }} — {{ assignModal.departureTime }}</p>
 
           <div class="modal-field" v-if="!assignModal.driverId">
-            <label>Driver (assistant is assigned automatically)</label>
+            <label>Driver (pair driver with assistant on the Teams page)</label>
             <select v-model="assignForm.selectedDriverKey">
               <option value="">Select driver...</option>
               <option v-for="d in availableDriversWithWorkers" :key="d.driverUserId" :value="d.driverUserId">
-                {{ d.driverName }} — {{ d.workerName }}
+                {{ d.driverName }} — {{ d.workerName || 'No assistant' }}
               </option>
             </select>
           </div>
@@ -147,12 +159,16 @@
             <select v-model="newTripForm.selectedDriverKey">
               <option value="">Assign later</option>
               <option v-for="d in availableDriversWithWorkers" :key="d.driverUserId" :value="d.driverUserId">
-                {{ d.driverName }} — {{ d.workerName }}
+                {{ d.driverName }} — {{ d.workerName || 'No assistant' }}
               </option>
             </select>
           </div>
           <p v-if="newTripError" class="assign-error">{{ newTripError }}</p>
-          <button class="btn-primary" :disabled="creatingTrip" @click="submitNewTrip">
+          <button
+            class="btn-primary"
+            :disabled="creatingTrip || newTripRoutes.length === 0 || newTripBuses.length === 0"
+            @click="submitNewTrip"
+          >
             <i v-if="creatingTrip" class="fas fa-spinner fa-spin"></i>
             <span v-else>Create Trip</span>
           </button>
@@ -175,26 +191,17 @@ import { fareCollectionService } from '../../services/fareCollectionService.js'
 import { notificationService } from '../../services/notificationService.js'
 import { driverService } from '../../services/driverService.js'
 import { workerService } from '../../services/workerService.js'
+import { navItems } from './managerNav.js'
 
 const auth = useAuth()
-
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
 
 const loading = ref(true)
 const error = ref('')
 const trips = ref([])
 const unreadCount = ref(0)
-/** List of { driverUserId, driverName, driverDocId, workerUserId, workerName, workerDocId } for drivers who have a linked worker */
+/** List of { driverUserId, driverName, driverDocId, workerUserId, workerName, workerDocId } for drivers (worker may be null) */
 const availableDriversWithWorkers = ref([])
+/** Workers with no driver linked, for "link as assistant" in Assign modal */
 
 const assignModal = ref(null)
 const assignForm = ref({ selectedDriverKey: '' })
@@ -233,9 +240,9 @@ async function loadTrips() {
 
     const [schedules, routes, driverUsers, driverDocs, workerDocs, fares, notifications] = await Promise.all([
       scheduleService.getByCompany(companyId),
-      routeService.getByCompany(companyId),
-      userService.getAll({ role: 'driver', depotId }),
-      driverService.getAll({ companyId, depotId }),
+      routeService.getAll({ companyId }),
+      userService.getAll({ role: 'driver', companyId }),
+      driverService.getAll({ companyId }),
       workerService.getAll({ companyId }),
       fareCollectionService.getByDepot(depotId, { tripDate: today() }),
       notificationService.getUnread(auth.userId.value),
@@ -246,20 +253,33 @@ async function loadTrips() {
     const driverMapByUserId = {}
     driverDocs.forEach(d => { driverMapByUserId[d.userId] = d })
     const workerMapByDriverId = {}
-    workerDocs.forEach(w => { workerMapByDriverId[w.driverId] = w })
+    workerDocs.forEach(w => {
+      const key = w.driverId != null ? String(w.driverId).trim() : ''
+      if (key) workerMapByDriverId[key] = w
+    })
 
+    const activeDriverUserIds = new Set(driverUsers.filter(u => u.status !== 'inactive').map(u => u.id))
+
+    // Normalize driver doc id so it matches Worker.driverId (string, trimmed)
+    function driverDocId(d) {
+      return (d?.id != null ? String(d.id) : (d?._id != null ? String(d._id) : '')).trim()
+    }
+
+    // Include all active drivers (with or without linked worker) so they can be assigned
     availableDriversWithWorkers.value = driverUsers
+      .filter(u => activeDriverUserIds.has(u.id))
       .map(u => {
         const driverDoc = driverMapByUserId[u.id]
-        const workerDoc = driverDoc ? workerMapByDriverId[driverDoc.id] : null
-        if (!driverDoc || !workerDoc) return null
+        if (!driverDoc) return null
+        const driverIdKey = driverDocId(driverDoc)
+        const workerDoc = driverIdKey ? (workerMapByDriverId[driverIdKey] || null) : null
         return {
           driverUserId: u.id,
           driverName: `${u.firstName} ${u.lastName}`,
           driverDocId: driverDoc.id,
-          workerUserId: workerDoc.userId,
-          workerName: workerDoc.name || `${workerDoc.userId}`,
-          workerDocId: workerDoc.id,
+          workerUserId: workerDoc ? workerDoc.userId : null,
+          workerName: workerDoc ? (workerDoc.name || `${workerDoc.userId}`) : null,
+          workerDocId: workerDoc ? workerDoc.id : null,
         }
       })
       .filter(Boolean)
@@ -304,16 +324,73 @@ async function loadTrips() {
   }
 }
 
-function openAssignModal(trip) {
+const selectedDriverForAssign = computed(() => {
+  if (!assignModal.value || !assignForm.value.selectedDriverKey) return null
+  return availableDriversWithWorkers.value.find(d => d.driverUserId === assignForm.value.selectedDriverKey) || null
+})
+
+/** Re-fetch drivers and workers so Assign dropdown shows up-to-date links (e.g. after linking on Teams). */
+async function refreshAvailableDriversWithWorkers() {
+  const companyId = auth.companyId.value
+  const [driverUsers, driverDocs, workerDocs] = await Promise.all([
+    userService.getAll({ role: 'driver', companyId }),
+    driverService.getAll({ companyId }),
+    workerService.getAll({ companyId }),
+  ])
+  const driverMapByUserId = {}
+  driverDocs.forEach(d => { driverMapByUserId[d.userId] = d })
+  const workerMapByDriverId = {}
+  workerDocs.forEach(w => {
+    const key = w.driverId != null ? String(w.driverId).trim() : ''
+    if (key) workerMapByDriverId[key] = w
+  })
+  function driverDocId(d) {
+    return (d?.id != null ? String(d.id) : (d?._id != null ? String(d._id) : '')).trim()
+  }
+  const activeDriverUserIds = new Set(driverUsers.filter(u => u.status !== 'inactive').map(u => u.id))
+  availableDriversWithWorkers.value = driverUsers
+    .filter(u => activeDriverUserIds.has(u.id))
+    .map(u => {
+      const driverDoc = driverMapByUserId[u.id]
+      if (!driverDoc) return null
+      const driverIdKey = driverDocId(driverDoc)
+      const workerDoc = driverIdKey ? (workerMapByDriverId[driverIdKey] || null) : null
+      return {
+        driverUserId: u.id,
+        driverName: `${u.firstName} ${u.lastName}`,
+        driverDocId: driverDoc.id,
+        workerUserId: workerDoc ? workerDoc.userId : null,
+        workerName: workerDoc ? (workerDoc.name || `${workerDoc.userId}`) : null,
+        workerDocId: workerDoc ? workerDoc.id : null,
+      }
+    })
+    .filter(Boolean)
+}
+
+async function openAssignModal(trip) {
   assignModal.value = trip
   assignForm.value = { selectedDriverKey: '' }
   assignError.value = ''
+  await refreshAvailableDriversWithWorkers()
+}
+
+async function handleDeleteTrip(trip) {
+  if (!confirm(`Delete trip "${trip.routeName}" at ${trip.departureTime}? This cannot be undone.`)) return
+  trip._deleting = true
+  try {
+    await scheduleService.remove(trip.id)
+    await loadTrips()
+  } catch {
+    error.value = 'Failed to delete trip.'
+  } finally {
+    trip._deleting = false
+  }
 }
 
 async function submitAssignment() {
   assignError.value = ''
   if (!assignModal.value.driverId && !assignForm.value.selectedDriverKey) {
-    assignError.value = 'Please select a driver (assistant is assigned automatically).'
+    assignError.value = 'Please select a driver. Link driver and assistant on the Teams page if needed.'
     return
   }
 
@@ -322,8 +399,10 @@ async function submitAssignment() {
   if (!assignModal.value.driverId && selected) {
     patch.driverId = selected.driverUserId
     patch.driverName = selected.driverName
-    patch.workerId = selected.workerUserId
-    patch.workerName = selected.workerName
+    if (selected.workerDocId) {
+      patch.workerId = selected.workerUserId || null
+      patch.workerName = selected.workerName || null
+    }
   }
 
   if (!Object.keys(patch).length) {
@@ -335,13 +414,14 @@ async function submitAssignment() {
   try {
     await scheduleService.patch(assignModal.value.id, patch)
     const driverDoc = await driverService.getById(selected.driverDocId)
-    const workerDoc = await workerService.getById(selected.workerDocId)
     const driverSchedules = [...(driverDoc.assignedScheduleIds || []), assignModal.value.id]
-    const workerSchedules = [...(workerDoc.assignedScheduleIds || []), assignModal.value.id]
-    await Promise.all([
-      driverService.patch(selected.driverDocId, { assignedScheduleIds: driverSchedules }),
-      workerService.patch(selected.workerDocId, { assignedScheduleIds: workerSchedules }),
-    ])
+    await driverService.patch(selected.driverDocId, { assignedScheduleIds: driverSchedules })
+    if (patch.workerId && selected.workerDocId) {
+      const workerDocId = selected.workerDocId
+      const workerDoc = await workerService.getById(workerDocId)
+      const workerSchedules = [...(workerDoc.assignedScheduleIds || []), assignModal.value.id]
+      await workerService.patch(workerDocId, { assignedScheduleIds: workerSchedules })
+    }
     assignModal.value = null
     await loadTrips()
   } catch (e) {
@@ -363,12 +443,19 @@ async function openNewTripModal() {
   }
   newTripError.value = ''
   try {
+    const companyId = auth.companyId.value
+    const depotId = auth.depotId.value
     const [routes, buses] = await Promise.all([
-      routeService.getByCompany(auth.companyId.value),
-      busService.getAll({ companyId: auth.companyId.value, depotId: auth.depotId.value }),
+      routeService.getAll({ companyId }),
+      depotId
+        ? busService.getAll({ companyId, depotId })
+        : busService.getAll({ companyId }),
     ])
     newTripRoutes.value = routes.filter(r => r.isActive !== false)
-    newTripBuses.value = buses.filter(b => b.isActive !== false)
+    newTripBuses.value = (buses || []).filter(b => b.isActive !== false)
+    if (newTripRoutes.value.length === 0 || newTripBuses.value.length === 0) {
+      newTripError.value = 'You need at least one route and one bus to create a trip. Please add them from the Routes and Buses pages first.'
+    }
   } catch {
     newTripError.value = 'Failed to load routes and buses.'
   }
@@ -376,6 +463,10 @@ async function openNewTripModal() {
 
 async function submitNewTrip() {
   newTripError.value = ''
+  if (newTripRoutes.value.length === 0 || newTripBuses.value.length === 0) {
+    newTripError.value = 'You need at least one route and one bus to create a trip. Please add them from the Routes and Buses pages first.'
+    return
+  }
   if (!newTripForm.value.routeId || !newTripForm.value.busId || !newTripForm.value.date || !newTripForm.value.departureTime) {
     newTripError.value = 'Please fill route, bus, date and departure time.'
     return
@@ -402,15 +493,15 @@ async function submitNewTrip() {
       await scheduleService.patch(schedule.id, {
         driverId: selected.driverUserId,
         driverName: selected.driverName,
-        workerId: selected.workerUserId,
-        workerName: selected.workerName,
+        workerId: selected.workerUserId || null,
+        workerName: selected.workerName || null,
       })
       const driverDoc = await driverService.getById(selected.driverDocId)
-      const workerDoc = await workerService.getById(selected.workerDocId)
-      await Promise.all([
-        driverService.patch(selected.driverDocId, { assignedScheduleIds: [...(driverDoc.assignedScheduleIds || []), schedule.id] }),
-        workerService.patch(selected.workerDocId, { assignedScheduleIds: [...(workerDoc.assignedScheduleIds || []), schedule.id] }),
-      ])
+      await driverService.patch(selected.driverDocId, { assignedScheduleIds: [...(driverDoc.assignedScheduleIds || []), schedule.id] })
+      if (selected.workerDocId) {
+        const workerDoc = await workerService.getById(selected.workerDocId)
+        await workerService.patch(selected.workerDocId, { assignedScheduleIds: [...(workerDoc.assignedScheduleIds || []), schedule.id] })
+      }
     }
     newTripModal.value = false
     await loadTrips()
@@ -514,6 +605,30 @@ onMounted(loadTrips)
 }
 .btn-assign:hover { background: rgba(34,197,94,0.18); }
 
+.trip-card-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.btn-delete-trip-inline {
+  padding: 9px 16px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.btn-delete-trip-inline:hover:not(:disabled) { background: rgba(239,68,68,0.2); }
+.btn-delete-trip-inline:disabled { opacity: 0.6; cursor: not-allowed; }
+
 .loading-state, .error-state, .empty-state {
   text-align: center;
   padding: 64px 20px;
@@ -599,6 +714,7 @@ onMounted(loadTrips)
 .modal-field select option { background: #141414; color: rgba(255,255,255,0.85); }
 
 .assign-error { color: #ef4444; font-size: 13px; margin-bottom: 12px; }
+.modal-hint { font-size: 12px; color: rgba(255,255,255,0.4); margin: 6px 0 0; }
 
 .btn-primary {
   width: 100%;

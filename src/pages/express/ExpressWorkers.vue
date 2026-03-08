@@ -20,7 +20,7 @@
       @retry="loadData"
     >
       <template #cell-name="{ row }">
-        <span class="name-cell">{{ row.firstName }} {{ row.lastName }}</span>
+        <span class="name-cell">{{ row.displayName || '—' }}</span>
       </template>
       <template #cell-depot="{ row }">
         {{ row.depotName || '—' }}
@@ -42,6 +42,7 @@ import DataTable from '../../components/shared/DataTable.vue'
 import StatusBadge from '../../components/shared/StatusBadge.vue'
 import { useAuth } from '../../composables/useAuth.js'
 import { workerService } from '../../services/workerService.js'
+import { userService } from '../../services/userService.js'
 import { depotService } from '../../services/depotService.js'
 import { notificationService } from '../../services/notificationService.js'
 import { companyService } from '../../services/companyService.js'
@@ -79,10 +80,20 @@ async function loadData() {
       companyService.getById(cid.value),
     ])
     const depotMap = Object.fromEntries(depots.map(d => [d.id, d.name]))
-    rows.value = workers.map(w => ({
-      ...w,
-      depotName: depotMap[w.depotId] || '',
-    }))
+    const userIds = [...new Set(workers.map(w => w.userId).filter(Boolean))]
+    const users = await Promise.all(userIds.map(id => userService.getById(id).catch(() => null)))
+    const userMap = Object.fromEntries(users.filter(Boolean).map(u => [u.id, u]))
+    rows.value = workers.map(w => {
+      const user = w.userId ? userMap[w.userId] : null
+      const displayName = user
+        ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+        : (w.name || '').trim()
+      return {
+        ...w,
+        displayName: displayName || '—',
+        depotName: depotMap[w.depotId] || '',
+      }
+    })
     unreadCount.value = notifs.length
     companyName.value = company?.name || ''
   } catch {

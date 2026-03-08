@@ -8,6 +8,12 @@
     @logout="handleLogout"
     @notifications="() => {}"
   >
+    <div class="page-actions">
+      <button class="btn-primary" @click="showReportModal = true">
+        <i class="fas fa-plus"></i> Report Incident
+      </button>
+    </div>
+
     <DataTable
       :columns="columns"
       :rows="sortedRows"
@@ -15,9 +21,14 @@
       :error="error"
       empty-icon="fas fa-exclamation-triangle"
       empty-title="No incidents reported"
-      empty-subtitle="Incidents for your depot will appear here"
+      empty-subtitle="Report an incident to get started"
       @retry="loadIncidents"
     >
+      <template #empty-action>
+        <button class="btn-add" @click="showReportModal = true">
+          <i class="fas fa-plus"></i> Report Incident
+        </button>
+      </template>
       <template #cell-severity="{ row }">
         <StatusBadge :status="row.severity" />
       </template>
@@ -27,18 +38,79 @@
       </template>
 
       <template #cell-actions="{ row }">
-        <button
-          v-if="row.status === 'open'"
-          class="btn-resolve"
-          @click="openResolveModal(row)"
-        >
-          <i class="fas fa-check"></i> Resolve
-        </button>
-        <span v-else class="resolved-label">
-          <i class="fas fa-check-circle"></i> Resolved
-        </span>
+        <div class="incident-actions">
+          <button
+            v-if="row.status === 'open'"
+            class="btn-resolve"
+            @click="openResolveModal(row)"
+          >
+            <i class="fas fa-check"></i> Resolve
+          </button>
+          <span v-if="row.status !== 'open'" class="resolved-label">
+            <i class="fas fa-check-circle"></i> Resolved
+          </span>
+          <button
+            type="button"
+            class="btn-remove-incident"
+            :disabled="row._removing"
+            @click.stop="handleRemoveIncident(row)"
+            title="Delete incident"
+          >
+            <i v-if="row._removing" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-trash-alt"></i> Delete
+          </button>
+        </div>
       </template>
     </DataTable>
+
+    <!-- Report Incident Modal -->
+    <teleport to="body">
+      <div v-if="showReportModal" class="modal-backdrop" @click.self="showReportModal = false">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3>Report Incident</h3>
+            <button class="modal-close" @click="showReportModal = false"><i class="fas fa-times"></i></button>
+          </div>
+
+          <form @submit.prevent="handleReportIncident">
+            <div class="modal-field">
+              <label>Type</label>
+              <select v-model="reportForm.type" required>
+                <option value="">Select type...</option>
+                <option value="breakdown">Breakdown</option>
+                <option value="accident">Accident</option>
+                <option value="delay">Delay</option>
+                <option value="passenger_complaint">Passenger Complaint</option>
+                <option value="road_block">Road Block</option>
+                <option value="weather">Weather</option>
+                <option value="fuel_shortage">Fuel Shortage</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="modal-field">
+              <label>Severity</label>
+              <select v-model="reportForm.severity" required>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="modal-field">
+              <label>Description</label>
+              <textarea v-model="reportForm.description" rows="3" required placeholder="Describe what happened..."></textarea>
+            </div>
+
+            <p v-if="reportError" class="modal-error">{{ reportError }}</p>
+
+            <button type="submit" class="btn-primary btn-full" :disabled="reporting">
+              <i v-if="reporting" class="fas fa-spinner fa-spin"></i>
+              <span v-else>Report Incident</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </teleport>
 
     <teleport to="body">
       <div v-if="resolveModal" class="modal-backdrop" @click.self="resolveModal = null">
@@ -79,19 +151,9 @@ import StatusBadge from '../../components/shared/StatusBadge.vue'
 import { useAuth } from '../../composables/useAuth.js'
 import { incidentService } from '../../services/incidentService.js'
 import { notificationService } from '../../services/notificationService.js'
+import { navItems } from './managerNav.js'
 
 const auth = useAuth()
-
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
 
 const columns = [
   { key: 'date', label: 'Date' },
@@ -100,7 +162,7 @@ const columns = [
   { key: 'severity', label: 'Severity' },
   { key: 'reportedBy', label: 'Reported By' },
   { key: 'status', label: 'Status' },
-  { key: 'actions', label: '', width: '130px' },
+  { key: 'actions', label: '', width: '200px' },
 ]
 
 const loading = ref(true)
@@ -111,6 +173,15 @@ const unreadCount = ref(0)
 const resolveModal = ref(null)
 const resolution = ref('')
 const resolving = ref(false)
+
+const showReportModal = ref(false)
+const reporting = ref(false)
+const reportError = ref('')
+const reportForm = ref({
+  type: '',
+  severity: 'low',
+  description: '',
+})
 const resolveError = ref('')
 
 const userName = computed(() => {
@@ -125,6 +196,19 @@ const sortedRows = computed(() => {
     return 0
   })
 })
+
+async function handleRemoveIncident(row) {
+  if (!confirm('Delete this incident record?')) return
+  row._removing = true
+  try {
+    await incidentService.remove(row.id)
+    await loadIncidents()
+  } catch {
+    error.value = 'Failed to delete incident.'
+  } finally {
+    row._removing = false
+  }
+}
 
 async function loadIncidents() {
   loading.value = true
@@ -152,6 +236,35 @@ async function loadIncidents() {
     error.value = 'Failed to load incidents. Please try again.'
   } finally {
     loading.value = false
+  }
+}
+
+async function handleReportIncident() {
+  if (!reportForm.value.description.trim()) {
+    reportError.value = 'Please enter a description'
+    return
+  }
+  reporting.value = true
+  reportError.value = ''
+  try {
+    await incidentService.create({
+      companyId: auth.companyId.value,
+      depotId: auth.depotId.value || null,
+      reportedBy: auth.userId.value,
+      reporterRole: 'manager',
+      type: reportForm.value.type,
+      severity: reportForm.value.severity,
+      description: reportForm.value.description.trim(),
+      status: 'open',
+      date: new Date().toISOString().split('T')[0],
+    })
+    showReportModal.value = false
+    reportForm.value = { type: '', severity: 'low', description: '' }
+    await loadIncidents()
+  } catch {
+    reportError.value = 'Failed to report incident. Try again.'
+  } finally {
+    reporting.value = false
   }
 }
 
@@ -215,6 +328,29 @@ onMounted(loadIncidents)
   align-items: center;
   gap: 4px;
 }
+
+.incident-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.btn-remove-incident {
+  padding: 6px 12px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.btn-remove-incident:hover:not(:disabled) { background: rgba(239,68,68,0.2); }
+.btn-remove-incident:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .modal-backdrop {
   position: fixed;
@@ -297,4 +433,13 @@ onMounted(loadIncidents)
 .btn-primary:hover:not(:disabled) { background: #16a34a; }
 .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn-full { width: 100%; display: flex; align-items: center; justify-content: center; }
+
+.page-actions { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+.page-actions .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; min-height: auto; }
+.btn-add {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; background: #22c55e; color: #fff;
+  border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn-add:hover { background: #16a34a; }
 </style>

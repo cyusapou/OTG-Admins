@@ -20,7 +20,7 @@
       @retry="loadData"
     >
       <template #cell-name="{ row }">
-        <span class="name-cell">{{ row.firstName }} {{ row.lastName }}</span>
+        <span class="name-cell">{{ row.displayName || '—' }}</span>
       </template>
       <template #cell-depot="{ row }">
         {{ row.depotName || '—' }}
@@ -45,6 +45,7 @@ import DataTable from '../../components/shared/DataTable.vue'
 import StatusBadge from '../../components/shared/StatusBadge.vue'
 import { useAuth } from '../../composables/useAuth.js'
 import { driverService } from '../../services/driverService.js'
+import { userService } from '../../services/userService.js'
 import { depotService } from '../../services/depotService.js'
 import { busService } from '../../services/busService.js'
 import { notificationService } from '../../services/notificationService.js'
@@ -86,11 +87,21 @@ async function loadData() {
     ])
     const depotMap = Object.fromEntries(depots.map(d => [d.id, d.name]))
     const busMap = Object.fromEntries(buses.map(b => [b.driverId, b.plateNumber || b.plate]))
-    rows.value = drivers.map(d => ({
-      ...d,
-      depotName: depotMap[d.depotId] || '',
-      busPlate: busMap[d.id] || '',
-    }))
+    const userIds = [...new Set(drivers.map(d => d.userId).filter(Boolean))]
+    const users = await Promise.all(userIds.map(id => userService.getById(id).catch(() => null)))
+    const userMap = Object.fromEntries(users.filter(Boolean).map(u => [u.id, u]))
+    rows.value = drivers.map(d => {
+      const user = d.userId ? userMap[d.userId] : null
+      const displayName = user
+        ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim()
+        : (d.name || '').trim()
+      return {
+        ...d,
+        displayName: displayName || '—',
+        depotName: depotMap[d.depotId] || '',
+        busPlate: busMap[d.id] || '',
+      }
+    })
     unreadCount.value = notifs.length
     companyName.value = company?.name || ''
   } catch {

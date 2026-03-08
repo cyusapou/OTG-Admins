@@ -22,13 +22,6 @@
         <StatCard icon="fas fa-bus" label="Trips Today" :value="stats.tripsToday" :loading="loading" />
         <StatCard icon="fas fa-users" label="Passengers Today" :value="stats.passengersToday" :loading="loading" />
         <StatCard icon="fas fa-coins" label="Revenue Today" :value="stats.revenueToday" :loading="loading" />
-        <StatCard
-          icon="fas fa-clock"
-          label="Pending Approvals"
-          :value="stats.pendingApprovals"
-          :highlight="stats.pendingApprovals > 0"
-          :loading="loading"
-        />
       </div>
 
       <div class="panels">
@@ -58,35 +51,6 @@
           </div>
         </div>
 
-        <div class="panel">
-          <div class="panel-header">
-            <h3>Pending Approvals</h3>
-            <router-link to="/rura/routes" class="panel-link">View All</router-link>
-          </div>
-          <div v-if="loading" class="panel-loading">
-            <div class="skel-line" v-for="i in 4" :key="i"></div>
-          </div>
-          <div v-else-if="!pendingApprovals.length" class="panel-empty">
-            <i class="fas fa-check-circle"></i>
-            <span>No pending approvals</span>
-          </div>
-          <div v-else class="panel-list">
-            <div class="panel-item" v-for="a in pendingApprovals" :key="a.id">
-              <div class="item-info">
-                <span class="item-title">{{ a.routeName || 'Route' }}</span>
-                <span class="item-sub">{{ a.companyName || 'Unknown company' }} &middot; Submitted {{ formatDate(a.submittedAt) }}</span>
-              </div>
-              <div class="approval-actions">
-                <button class="btn-approve" @click="handleApprove(a)" :disabled="a._busy">
-                  <i class="fas fa-check"></i>
-                </button>
-                <button class="btn-reject" @click="handleReject(a)" :disabled="a._busy">
-                  <i class="fas fa-times"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </template>
   </PortalLayout>
@@ -102,28 +66,17 @@ import { companyService } from '../../services/companyService.js'
 import { routeService } from '../../services/routeService.js'
 import { fareCollectionService } from '../../services/fareCollectionService.js'
 import { incidentService } from '../../services/incidentService.js'
-import { routeApprovalService } from '../../services/routeApprovalService.js'
 import { notificationService } from '../../services/notificationService.js'
 import { plannedTripService } from '../../services/plannedTripService.js'
+import { navItems } from './ruraNav.js'
 
 const auth = useAuth()
-
-const navItems = [
-  { path: '/rura', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/rura/companies', icon: 'fas fa-building', label: 'Companies' },
-  { path: '/rura/routes', icon: 'fas fa-road', label: 'Routes' },
-  { path: '/rura/finances', icon: 'fas fa-coins', label: 'Finances' },
-  { path: '/rura/users', icon: 'fas fa-users', label: 'Users' },
-  { path: '/rura/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-  { path: '/rura/audit', icon: 'fas fa-clipboard-list', label: 'Audit Log' },
-]
 
 const loading = ref(true)
 const loadError = ref('')
 const unreadCount = ref(0)
-const stats = ref({ companies: 0, routes: 0, tripsToday: 0, passengersToday: 0, revenueToday: '0 RWF', pendingApprovals: 0 })
+const stats = ref({ companies: 0, routes: 0, tripsToday: 0, passengersToday: 0, revenueToday: '0 RWF' })
 const recentIncidents = ref([])
-const pendingApprovals = ref([])
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -136,12 +89,11 @@ async function loadAll() {
   loading.value = true
   loadError.value = ''
   try {
-    const [companies, routes, fares, incidents, pending, trips] = await Promise.all([
+    const [companies, routes, fares, incidents, trips] = await Promise.all([
       companyService.getAll(),
       routeService.getAll(),
       fareCollectionService.getAll({ tripDate: today }),
       incidentService.getAll({ _sort: 'createdAt', _order: 'desc', _limit: 5 }),
-      routeApprovalService.getPending(),
       plannedTripService.getAll({ date: today }),
     ])
 
@@ -155,9 +107,7 @@ async function loadAll() {
     const totalRevenue = fares.reduce((s, f) => s + (f.amount || 0), 0)
     stats.value.revenueToday = totalRevenue.toLocaleString() + ' RWF'
 
-    stats.value.pendingApprovals = pending.length
     recentIncidents.value = incidents
-    pendingApprovals.value = pending.slice(0, 5)
 
     if (auth.userId.value) {
       try {
@@ -170,26 +120,6 @@ async function loadAll() {
   } finally {
     loading.value = false
   }
-}
-
-async function handleApprove(approval) {
-  approval._busy = true
-  try {
-    await routeApprovalService.approve(approval.id, auth.userId.value)
-    pendingApprovals.value = pendingApprovals.value.filter(a => a.id !== approval.id)
-    stats.value.pendingApprovals = Math.max(0, stats.value.pendingApprovals - 1)
-  } catch {}
-}
-
-async function handleReject(approval) {
-  const reason = prompt('Rejection reason:')
-  if (!reason) return
-  approval._busy = true
-  try {
-    await routeApprovalService.reject(approval.id, auth.userId.value, reason)
-    pendingApprovals.value = pendingApprovals.value.filter(a => a.id !== approval.id)
-    stats.value.pendingApprovals = Math.max(0, stats.value.pendingApprovals - 1)
-  } catch {}
 }
 
 onMounted(loadAll)
@@ -290,25 +220,6 @@ onMounted(loadAll)
 .item-info { display: flex; flex-direction: column; min-width: 0; }
 .item-title { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item-sub { font-size: 12px; color: rgba(255,255,255,0.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.approval-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.btn-approve, .btn-reject {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  transition: all 0.15s;
-}
-.btn-approve { background: rgba(34,197,94,0.12); color: #22c55e; }
-.btn-approve:hover { background: rgba(34,197,94,0.25); }
-.btn-reject { background: rgba(239,68,68,0.12); color: #ef4444; }
-.btn-reject:hover { background: rgba(239,68,68,0.25); }
-.btn-approve:disabled, .btn-reject:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .section-error {
   text-align: center;

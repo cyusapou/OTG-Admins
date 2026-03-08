@@ -2,15 +2,15 @@
   <PortalLayout
     :nav-items="navItems"
     role-label="Manager"
-    page-title="Buses"
+    page-title="Routes"
     :user-name="userName"
     :unread-count="unreadCount"
     @logout="handleLogout"
     @notifications="() => {}"
   >
     <div class="page-actions">
-      <router-link to="/manager/buses/new" class="btn-primary">
-        <i class="fas fa-plus"></i> Add Bus
+      <router-link to="/manager/routes/new" class="btn-primary">
+        <i class="fas fa-plus"></i> New Route
       </router-link>
     </div>
 
@@ -19,35 +19,29 @@
       :rows="rows"
       :loading="loading"
       :error="error"
-      empty-icon="fas fa-bus"
-      empty-title="No buses in this depot"
-      empty-subtitle="Add a bus to get started"
-      @retry="loadBuses"
+      empty-icon="fas fa-road"
+      empty-title="No routes yet"
+      empty-subtitle="Add a route to create trips"
+      @retry="loadData"
     >
       <template #empty-action>
-        <router-link to="/manager/buses/new" class="btn-primary">
-          <i class="fas fa-plus"></i> Add Bus
+        <router-link to="/manager/routes/new" class="btn-primary">
+          <i class="fas fa-plus"></i> New Route
         </router-link>
       </template>
-      <template #cell-plateNumber="{ row }">
-        <span class="plate">{{ row.plateNumber }}</span>
+      <template #cell-route="{ row }">
+        <span class="route-cell">{{ row.origin }} → {{ row.destination }}</span>
       </template>
-
-      <template #cell-driverName="{ row }">
-        <span :class="{ 'no-driver': !row.driverName }">{{ row.driverName || 'Unassigned' }}</span>
-      </template>
-
       <template #cell-status="{ row }">
-        <StatusBadge :status="row.status" />
+        <StatusBadge :status="row.isActive ? 'active' : 'inactive'" />
       </template>
-
       <template #cell-actions="{ row }">
         <button
           type="button"
           class="btn-remove"
           :disabled="row._deleting"
-          @click.stop="handleRemoveBus(row)"
-          title="Remove bus"
+          @click.stop="handleRemoveRoute(row)"
+          title="Remove route"
         >
           <i v-if="row._deleting" class="fas fa-spinner fa-spin"></i>
           <i v-else class="fas fa-trash-alt"></i>
@@ -63,21 +57,12 @@ import PortalLayout from '../../components/shared/PortalLayout.vue'
 import DataTable from '../../components/shared/DataTable.vue'
 import StatusBadge from '../../components/shared/StatusBadge.vue'
 import { useAuth } from '../../composables/useAuth.js'
-import { busService } from '../../services/busService.js'
-import { userService } from '../../services/userService.js'
+import { routeService } from '../../services/routeService.js'
 import { notificationService } from '../../services/notificationService.js'
 import { navItems } from './managerNav.js'
 
 const auth = useAuth()
-
-const columns = [
-  { key: 'plateNumber', label: 'Plate' },
-  { key: 'model', label: 'Model' },
-  { key: 'capacity', label: 'Capacity' },
-  { key: 'driverName', label: 'Driver' },
-  { key: 'status', label: 'Status' },
-  { key: 'actions', label: '', width: '80px' },
-]
+const cid = computed(() => auth.companyId.value)
 
 const loading = ref(true)
 const error = ref('')
@@ -89,49 +74,43 @@ const userName = computed(() => {
   return u ? `${u.firstName} ${u.lastName}` : ''
 })
 
-async function loadBuses() {
+const columns = [
+  { key: 'route', label: 'Route' },
+  { key: 'distance', label: 'Distance' },
+  { key: 'fare', label: 'Fare' },
+  { key: 'status', label: 'Status', width: '100px' },
+  { key: 'actions', label: '', width: '80px' },
+]
+
+async function loadData() {
   loading.value = true
   error.value = ''
   try {
-    const depotId = auth.depotId.value
-
-    const [buses, drivers, notifications] = await Promise.all([
-      busService.getAll({ depotId }),
-      userService.getAll({ role: 'driver', depotId }),
+    const [routes, notifs] = await Promise.all([
+      routeService.getAll({ companyId: cid.value }),
       notificationService.getUnread(auth.userId.value),
     ])
-
-    unreadCount.value = notifications.length
-
-    const driverMap = {}
-    drivers.forEach(d => { driverMap[d.id] = d })
-
-    rows.value = buses.map(b => {
-      const driver = b.driverId ? driverMap[b.driverId] : null
-      return {
-        id: b.id,
-        plateNumber: b.plateNumber || '—',
-        model: b.model || '—',
-        capacity: b.capacity || '—',
-        driverName: driver ? `${driver.firstName} ${driver.lastName}` : null,
-        status: b.status || 'active',
-      }
-    })
+    rows.value = routes.map(r => ({
+      ...r,
+      distance: r.distance ? `${r.distance} km` : '—',
+      fare: r.fare != null ? `RWF ${Number(r.fare).toLocaleString()}` : '—',
+    }))
+    unreadCount.value = notifs.length
   } catch {
-    error.value = 'Failed to load buses. Please try again.'
+    error.value = 'Failed to load routes'
   } finally {
     loading.value = false
   }
 }
 
-async function handleRemoveBus(row) {
-  if (!confirm(`Remove bus ${row.plateNumber}?`)) return
+async function handleRemoveRoute(row) {
+  if (!confirm(`Remove route ${row.origin} → ${row.destination}?`)) return
   row._deleting = true
   try {
-    await busService.remove(row.id)
-    await loadBuses()
+    await routeService.remove(row.id)
+    await loadData()
   } catch {
-    error.value = 'Failed to remove bus'
+    error.value = 'Failed to remove route'
   } finally {
     row._deleting = false
   }
@@ -141,11 +120,15 @@ function handleLogout() {
   auth.logout('/manager/login')
 }
 
-onMounted(loadBuses)
+onMounted(loadData)
 </script>
 
 <style scoped>
-.page-actions { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+.page-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
 .btn-primary {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 10px 20px; border-radius: 10px; background: #22c55e;
@@ -153,8 +136,7 @@ onMounted(loadBuses)
   border: none; cursor: pointer; transition: background 0.15s;
 }
 .btn-primary:hover { background: #16a34a; }
-.plate { font-weight: 700; font-family: monospace; letter-spacing: 0.5px; }
-.no-driver { color: rgba(255,255,255,0.3); font-style: italic; }
+.route-cell { font-weight: 600; color: rgba(255,255,255,0.9); }
 .btn-remove {
   padding: 6px 12px; border-radius: 8px; border: none;
   background: rgba(239,68,68,0.12); color: #ef4444; cursor: pointer;

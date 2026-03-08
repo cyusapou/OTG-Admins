@@ -38,6 +38,21 @@
           {{ row.licenseExpiry || '—' }}
         </span>
       </template>
+
+      <template #cell-actions="{ row }">
+        <button
+          v-if="row.status !== 'inactive'"
+          type="button"
+          class="btn-remove"
+          :disabled="row._removing"
+          @click.stop="handleRemoveDriver(row)"
+          title="Remove driver"
+        >
+          <i v-if="row._removing" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-user-minus"></i>
+        </button>
+        <span v-else class="inactive-label">Inactive</span>
+      </template>
     </DataTable>
 
     <router-link to="/manager/drivers/new" class="fab">
@@ -55,19 +70,9 @@ import { useAuth } from '../../composables/useAuth.js'
 import { userService } from '../../services/userService.js'
 import { driverService } from '../../services/driverService.js'
 import { notificationService } from '../../services/notificationService.js'
+import { navItems } from './managerNav.js'
 
 const auth = useAuth()
-
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
 
 const columns = [
   { key: 'name', label: 'Name' },
@@ -76,6 +81,7 @@ const columns = [
   { key: 'licenseExpiry', label: 'License Expiry' },
   { key: 'busPlate', label: 'Bus' },
   { key: 'status', label: 'Status' },
+  { key: 'actions', label: '', width: '90px' },
 ]
 
 const loading = ref(true)
@@ -115,22 +121,37 @@ async function loadDrivers() {
     const driverMap = {}
     driverRecords.forEach(d => { driverMap[d.userId] = d })
 
-    rows.value = driverUsers.map(u => {
-      const rec = driverMap[u.id] || {}
-      return {
-        id: u.id,
-        name: `${u.firstName} ${u.lastName}`,
-        phone: u.phone || '—',
-        licenseNumber: rec.licenseNumber || '—',
-        licenseExpiry: rec.licenseExpiry || null,
-        busPlate: rec.busPlate || '—',
-        status: u.status || 'active',
-      }
-    })
+    rows.value = driverUsers
+      .filter(u => u.status !== 'inactive')
+      .map(u => {
+        const rec = driverMap[u.id] || {}
+        return {
+          id: u.id,
+          name: `${u.firstName} ${u.lastName}`,
+          phone: u.phone || '—',
+          licenseNumber: rec.licenseNumber || '—',
+          licenseExpiry: rec.licenseExpiry || null,
+          busPlate: rec.busPlate || '—',
+          status: u.status || 'active',
+        }
+      })
   } catch (e) {
     error.value = 'Failed to load drivers. Please try again.'
   } finally {
     loading.value = false
+  }
+}
+
+async function handleRemoveDriver(row) {
+  if (!confirm(`Remove ${row.name} from drivers? They will be deactivated.`)) return
+  row._removing = true
+  try {
+    await userService.patch(row.id, { status: 'inactive' })
+    await loadDrivers()
+  } catch {
+    error.value = 'Failed to remove driver'
+  } finally {
+    row._removing = false
   }
 }
 
@@ -179,4 +200,13 @@ onMounted(loadDrivers)
   z-index: 30;
 }
 .fab:hover { background: #16a34a; transform: scale(1.05); }
+
+.btn-remove {
+  padding: 6px 12px; border-radius: 8px; border: none;
+  background: rgba(239,68,68,0.12); color: #ef4444; cursor: pointer;
+  font-size: 13px; transition: background 0.15s;
+}
+.btn-remove:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+.btn-remove:disabled { opacity: 0.6; cursor: not-allowed; }
+.inactive-label { font-size: 12px; color: rgba(255,255,255,0.35); }
 </style>

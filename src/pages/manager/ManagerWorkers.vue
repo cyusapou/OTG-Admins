@@ -32,6 +32,21 @@
       <template #cell-status="{ row }">
         <StatusBadge :status="row.isActive !== false ? 'active' : 'inactive'" />
       </template>
+
+      <template #cell-actions="{ row }">
+        <button
+          v-if="row.isActive !== false"
+          type="button"
+          class="btn-remove"
+          :disabled="row._removing"
+          @click.stop="handleRemoveWorker(row)"
+          title="Remove worker"
+        >
+          <i v-if="row._removing" class="fas fa-spinner fa-spin"></i>
+          <i v-else class="fas fa-user-minus"></i>
+        </button>
+        <span v-else class="inactive-label">Inactive</span>
+      </template>
     </DataTable>
 
     <router-link to="/manager/workers/new" class="fab">
@@ -122,24 +137,16 @@ import { workerService } from '../../services/workerService.js'
 import { notificationService } from '../../services/notificationService.js'
 import { auditLogService } from '../../services/auditLogService.js'
 
-const auth = useAuth()
+import { navItems } from './managerNav.js'
 
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
+const auth = useAuth()
 
 const columns = [
   { key: 'name', label: 'Name' },
   { key: 'phone', label: 'Phone' },
   { key: 'username', label: 'Username' },
   { key: 'status', label: 'Status' },
+  { key: 'actions', label: '', width: '90px' },
 ]
 
 const loading = ref(true)
@@ -223,6 +230,19 @@ async function toggleActive() {
     actionMsg.value = 'Action failed'
   } finally {
     actionLoading.value = false
+  }
+}
+
+async function handleRemoveWorker(row) {
+  if (!confirm(`Remove ${row.name} from workers? They will be deactivated.`)) return
+  row._removing = true
+  try {
+    await userService.patch(row.id, { isActive: false, status: 'inactive' })
+    await loadWorkers()
+  } catch {
+    error.value = 'Failed to remove worker'
+  } finally {
+    row._removing = false
   }
 }
 
@@ -487,6 +507,15 @@ onMounted(loadWorkers)
   color: #22c55e;
   background: rgba(34,197,94,0.08);
 }
+
+.btn-remove {
+  padding: 6px 12px; border-radius: 8px; border: none;
+  background: rgba(239,68,68,0.12); color: #ef4444; cursor: pointer;
+  font-size: 13px; transition: background 0.15s;
+}
+.btn-remove:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+.btn-remove:disabled { opacity: 0.6; cursor: not-allowed; }
+.inactive-label { font-size: 12px; color: rgba(255,255,255,0.35); }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px); }

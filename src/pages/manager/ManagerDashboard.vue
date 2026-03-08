@@ -91,20 +91,10 @@ import { workerService } from '../../services/workerService.js'
 import { fareCollectionService } from '../../services/fareCollectionService.js'
 import { bookingService } from '../../services/bookingService.js'
 import { notificationService } from '../../services/notificationService.js'
+import { navItems } from './managerNav.js'
 
 const router = useRouter()
 const auth = useAuth()
-
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
 
 const loading = ref(true)
 const showNotifications = ref(false)

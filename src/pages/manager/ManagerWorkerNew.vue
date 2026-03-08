@@ -77,18 +77,9 @@ import { userService } from '../../services/userService.js'
 import { workerService } from '../../services/workerService.js'
 import { salaryService } from '../../services/salaryService.js'
 
-const auth = useAuth()
+import { navItems } from './managerNav.js'
 
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
+const auth = useAuth()
 
 const userName = computed(() => {
   const u = auth.currentUser.value

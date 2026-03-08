@@ -48,16 +48,28 @@
       </template>
 
       <template #cell-actions="{ row }">
-        <button
-          v-if="row.status === 'pending'"
-          class="btn-mark-paid"
-          :disabled="row._paying"
-          @click="handleMarkPaid(row)"
-        >
-          <i v-if="row._paying" class="fas fa-spinner fa-spin"></i>
-          <span v-else>Mark Paid</span>
-        </button>
-        <span v-else class="paid-label"><i class="fas fa-check"></i> Paid</span>
+        <div class="salary-actions">
+          <button
+            v-if="row.status === 'pending'"
+            class="btn-mark-paid"
+            :disabled="row._paying"
+            @click="handleMarkPaid(row)"
+          >
+            <i v-if="row._paying" class="fas fa-spinner fa-spin"></i>
+            <span v-else>Mark Paid</span>
+          </button>
+          <span v-else class="paid-label"><i class="fas fa-check"></i> Paid</span>
+          <button
+            type="button"
+            class="btn-remove-salary"
+            :disabled="row._removing"
+            @click.stop="handleRemoveSalary(row)"
+            title="Remove salary record"
+          >
+            <i v-if="row._removing" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-trash-alt"></i> Delete
+          </button>
+        </div>
       </template>
     </DataTable>
   </PortalLayout>
@@ -71,26 +83,16 @@ import StatusBadge from '../../components/shared/StatusBadge.vue'
 import { useAuth } from '../../composables/useAuth.js'
 import { salaryService } from '../../services/salaryService.js'
 import { notificationService } from '../../services/notificationService.js'
+import { navItems } from './managerNav.js'
 
 const auth = useAuth()
-
-const navItems = [
-  { path: '/manager', icon: 'fas fa-chart-pie', label: 'Dashboard', exact: true },
-  { path: '/manager/drivers', icon: 'fas fa-id-card', label: 'Drivers' },
-  { path: '/manager/workers', icon: 'fas fa-hard-hat', label: 'Workers' },
-  { path: '/manager/trips', icon: 'fas fa-route', label: 'Trips' },
-  { path: '/manager/buses', icon: 'fas fa-bus', label: 'Buses' },
-  { path: '/manager/expenses', icon: 'fas fa-receipt', label: 'Expenses' },
-  { path: '/manager/salaries', icon: 'fas fa-money-bill-wave', label: 'Salaries' },
-  { path: '/manager/incidents', icon: 'fas fa-exclamation-triangle', label: 'Incidents' },
-]
 
 const columns = [
   { key: 'name', label: 'Name' },
   { key: 'role', label: 'Role' },
   { key: 'amount', label: 'Amount' },
   { key: 'status', label: 'Status' },
-  { key: 'actions', label: '', width: '140px' },
+  { key: 'actions', label: '', width: '220px' },
 ]
 
 const loading = ref(true)
@@ -155,6 +157,19 @@ async function handleMarkPaid(row) {
   }
 }
 
+async function handleRemoveSalary(row) {
+  if (!confirm(`Remove salary record for ${row.name}?`)) return
+  row._removing = true
+  try {
+    await salaryService.remove(row.id)
+    await loadSalaries()
+  } catch {
+    error.value = 'Failed to remove salary record.'
+  } finally {
+    row._removing = false
+  }
+}
+
 async function handlePayAll() {
   payingAll.value = true
   const pending = rows.value.filter(r => r.status === 'pending')
@@ -212,6 +227,29 @@ onMounted(loadSalaries)
   color: #22c55e;
   font-weight: 500;
 }
+
+.salary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.btn-remove-salary {
+  padding: 6px 12px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.btn-remove-salary:hover:not(:disabled) { background: rgba(239,68,68,0.2); }
+.btn-remove-salary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-pay-all {
   padding: 10px 20px;
