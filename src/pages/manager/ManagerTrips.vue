@@ -21,13 +21,18 @@
       </button>
     </div>
 
-    <div v-else-if="!trips.length" class="empty-state">
-      <i class="fas fa-route"></i>
-      <p class="empty-title">No trips scheduled for today</p>
-      <p class="empty-sub">Trips for this depot will appear here</p>
-    </div>
-
-    <div v-else class="trips-grid">
+    <div v-else>
+      <div class="trips-header">
+        <button class="btn-new-trip" @click="openNewTripModal">
+          <i class="fas fa-plus"></i> New Trip
+        </button>
+      </div>
+      <div v-if="!trips.length" class="empty-state">
+        <i class="fas fa-route"></i>
+        <p class="empty-title">No trips scheduled for today</p>
+        <p class="empty-sub">Trips for this depot will appear here</p>
+      </div>
+      <div v-else class="trips-grid">
       <div
         v-for="trip in trips"
         :key="trip.id"
@@ -71,6 +76,7 @@
         </button>
       </div>
     </div>
+    </div>
 
     <teleport to="body">
       <div v-if="assignModal" class="modal-backdrop" @click.self="assignModal = null">
@@ -82,21 +88,11 @@
           <p class="modal-sub">{{ assignModal.routeName }} — {{ assignModal.departureTime }}</p>
 
           <div class="modal-field" v-if="!assignModal.driverId">
-            <label>Driver</label>
-            <select v-model="assignForm.driverId">
+            <label>Driver (assistant is assigned automatically)</label>
+            <select v-model="assignForm.selectedDriverKey">
               <option value="">Select driver...</option>
-              <option v-for="d in availableDrivers" :key="d.id" :value="d.id">
-                {{ d.firstName }} {{ d.lastName }}
-              </option>
-            </select>
-          </div>
-
-          <div class="modal-field" v-if="!assignModal.workerId">
-            <label>Worker</label>
-            <select v-model="assignForm.workerId">
-              <option value="">Select worker...</option>
-              <option v-for="w in availableWorkers" :key="w.id" :value="w.id">
-                {{ w.firstName }} {{ w.lastName }}
+              <option v-for="d in availableDriversWithWorkers" :key="d.driverUserId" :value="d.driverUserId">
+                {{ d.driverName }} — {{ d.workerName }}
               </option>
             </select>
           </div>
@@ -106,6 +102,59 @@
           <button class="btn-primary" :disabled="assigning" @click="submitAssignment">
             <i v-if="assigning" class="fas fa-spinner fa-spin"></i>
             <span v-else>Save Assignment</span>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="newTripModal" class="modal-backdrop" @click.self="newTripModal = false">
+        <div class="modal-card modal-card-wide">
+          <div class="modal-header">
+            <h3>New Trip</h3>
+            <button class="modal-close" @click="newTripModal = false"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="modal-field">
+            <label>Route</label>
+            <select v-model="newTripForm.routeId" required>
+              <option value="">Select route...</option>
+              <option v-for="r in newTripRoutes" :key="r.id" :value="r.id">
+                {{ r.origin }} → {{ r.destination }}
+              </option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label>Bus</label>
+            <select v-model="newTripForm.busId" required>
+              <option value="">Select bus...</option>
+              <option v-for="b in newTripBuses" :key="b.id" :value="b.id">
+                {{ b.plateNumber || b.plate }} ({{ b.capacity || 45 }} seats)
+              </option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label>Date</label>
+            <input v-model="newTripForm.date" type="date" required />
+          </div>
+          <div class="modal-field">
+            <label>Departure time</label>
+            <input v-model="newTripForm.departureTime" type="time" required />
+          </div>
+          <div class="modal-field">
+            <label>Total seats</label>
+            <input v-model.number="newTripForm.totalSeats" type="number" min="1" required />
+          </div>
+          <div class="modal-field">
+            <label>Assign driver (assistant auto-assigned)</label>
+            <select v-model="newTripForm.selectedDriverKey">
+              <option value="">Assign later</option>
+              <option v-for="d in availableDriversWithWorkers" :key="d.driverUserId" :value="d.driverUserId">
+                {{ d.driverName }} — {{ d.workerName }}
+              </option>
+            </select>
+          </div>
+          <p v-if="newTripError" class="assign-error">{{ newTripError }}</p>
+          <button class="btn-primary" :disabled="creatingTrip" @click="submitNewTrip">
+            <i v-if="creatingTrip" class="fas fa-spinner fa-spin"></i>
+            <span v-else>Create Trip</span>
           </button>
         </div>
       </div>
@@ -121,8 +170,11 @@ import { useAuth } from '../../composables/useAuth.js'
 import { userService } from '../../services/userService.js'
 import { scheduleService } from '../../services/scheduleService.js'
 import { routeService } from '../../services/routeService.js'
+import { busService } from '../../services/busService.js'
 import { fareCollectionService } from '../../services/fareCollectionService.js'
 import { notificationService } from '../../services/notificationService.js'
+import { driverService } from '../../services/driverService.js'
+import { workerService } from '../../services/workerService.js'
 
 const auth = useAuth()
 
@@ -141,13 +193,27 @@ const loading = ref(true)
 const error = ref('')
 const trips = ref([])
 const unreadCount = ref(0)
-const availableDrivers = ref([])
-const availableWorkers = ref([])
+/** List of { driverUserId, driverName, driverDocId, workerUserId, workerName, workerDocId } for drivers who have a linked worker */
+const availableDriversWithWorkers = ref([])
 
 const assignModal = ref(null)
-const assignForm = ref({ driverId: '', workerId: '' })
+const assignForm = ref({ selectedDriverKey: '' })
 const assigning = ref(false)
 const assignError = ref('')
+
+const newTripModal = ref(false)
+const newTripForm = ref({
+  routeId: '',
+  busId: '',
+  date: '',
+  departureTime: '08:00',
+  totalSeats: 45,
+  selectedDriverKey: '',
+})
+const newTripRoutes = ref([])
+const newTripBuses = ref([])
+const creatingTrip = ref(false)
+const newTripError = ref('')
 
 const userName = computed(() => {
   const u = auth.currentUser.value
@@ -165,32 +231,51 @@ async function loadTrips() {
     const depotId = auth.depotId.value
     const companyId = auth.companyId.value
 
-    const [schedules, routes, drivers, workers, fares, notifications] = await Promise.all([
+    const [schedules, routes, driverUsers, driverDocs, workerDocs, fares, notifications] = await Promise.all([
       scheduleService.getByCompany(companyId),
       routeService.getByCompany(companyId),
       userService.getAll({ role: 'driver', depotId }),
-      userService.getAll({ role: 'worker', depotId }),
+      driverService.getAll({ companyId, depotId }),
+      workerService.getAll({ companyId }),
       fareCollectionService.getByDepot(depotId, { tripDate: today() }),
       notificationService.getUnread(auth.userId.value),
     ])
 
     unreadCount.value = notifications.length
-    availableDrivers.value = drivers
-    availableWorkers.value = workers
 
-    const routeMap = {}
-    routes.forEach(r => { routeMap[r.id] = r })
+    const driverMapByUserId = {}
+    driverDocs.forEach(d => { driverMapByUserId[d.userId] = d })
+    const workerMapByDriverId = {}
+    workerDocs.forEach(w => { workerMapByDriverId[w.driverId] = w })
+
+    availableDriversWithWorkers.value = driverUsers
+      .map(u => {
+        const driverDoc = driverMapByUserId[u.id]
+        const workerDoc = driverDoc ? workerMapByDriverId[driverDoc.id] : null
+        if (!driverDoc || !workerDoc) return null
+        return {
+          driverUserId: u.id,
+          driverName: `${u.firstName} ${u.lastName}`,
+          driverDocId: driverDoc.id,
+          workerUserId: workerDoc.userId,
+          workerName: workerDoc.name || `${workerDoc.userId}`,
+          workerDocId: workerDoc.id,
+        }
+      })
+      .filter(Boolean)
 
     const driverMap = {}
-    drivers.forEach(d => { driverMap[d.id] = d })
-
+    driverUsers.forEach(d => { driverMap[d.id] = d })
     const workerMap = {}
-    workers.forEach(w => { workerMap[w.id] = w })
+    await Promise.all(workerDocs.map(w => userService.getById(w.userId).then(u => { workerMap[u.id] = u }))).catch(() => {})
 
     const depotSchedules = schedules.filter(s => {
       if (s.depotId && s.depotId !== depotId) return false
       return true
     })
+
+    const routeMap = {}
+    routes.forEach(r => { routeMap[r.id] = r })
 
     trips.value = depotSchedules.map(s => {
       const route = routeMap[s.routeId]
@@ -201,7 +286,7 @@ async function loadTrips() {
 
       return {
         id: s.id,
-        routeName: route?.name || 'Unknown Route',
+        routeName: route ? `${route.origin || ''} → ${route.destination || ''}`.trim() || 'Unknown Route' : 'Unknown Route',
         departureTime: s.departureTime || '—',
         driverId: s.driverId || null,
         driverName: driver ? `${driver.firstName} ${driver.lastName}` : null,
@@ -221,38 +306,118 @@ async function loadTrips() {
 
 function openAssignModal(trip) {
   assignModal.value = trip
-  assignForm.value = { driverId: '', workerId: '' }
+  assignForm.value = { selectedDriverKey: '' }
   assignError.value = ''
 }
 
 async function submitAssignment() {
   assignError.value = ''
-  const patch = {}
-  if (!assignModal.value.driverId && assignForm.value.driverId) {
-    patch.driverId = assignForm.value.driverId
-    const d = availableDrivers.value.find(x => x.id === assignForm.value.driverId)
-    if (d) patch.driverName = `${d.firstName} ${d.lastName}`
+  if (!assignModal.value.driverId && !assignForm.value.selectedDriverKey) {
+    assignError.value = 'Please select a driver (assistant is assigned automatically).'
+    return
   }
-  if (!assignModal.value.workerId && assignForm.value.workerId) {
-    patch.workerId = assignForm.value.workerId
-    const w = availableWorkers.value.find(x => x.id === assignForm.value.workerId)
-    if (w) patch.workerName = `${w.firstName} ${w.lastName}`
+
+  const selected = availableDriversWithWorkers.value.find(d => d.driverUserId === assignForm.value.selectedDriverKey)
+  const patch = {}
+  if (!assignModal.value.driverId && selected) {
+    patch.driverId = selected.driverUserId
+    patch.driverName = selected.driverName
+    patch.workerId = selected.workerUserId
+    patch.workerName = selected.workerName
   }
 
   if (!Object.keys(patch).length) {
-    assignError.value = 'Please select at least one staff member'
+    assignError.value = 'Please select a driver.'
     return
   }
 
   assigning.value = true
   try {
     await scheduleService.patch(assignModal.value.id, patch)
+    const driverDoc = await driverService.getById(selected.driverDocId)
+    const workerDoc = await workerService.getById(selected.workerDocId)
+    const driverSchedules = [...(driverDoc.assignedScheduleIds || []), assignModal.value.id]
+    const workerSchedules = [...(workerDoc.assignedScheduleIds || []), assignModal.value.id]
+    await Promise.all([
+      driverService.patch(selected.driverDocId, { assignedScheduleIds: driverSchedules }),
+      workerService.patch(selected.workerDocId, { assignedScheduleIds: workerSchedules }),
+    ])
     assignModal.value = null
     await loadTrips()
-  } catch {
-    assignError.value = 'Assignment failed. Try again.'
+  } catch (e) {
+    assignError.value = e.message || 'Assignment failed. Try again.'
   } finally {
     assigning.value = false
+  }
+}
+
+async function openNewTripModal() {
+  newTripModal.value = true
+  newTripForm.value = {
+    routeId: '',
+    busId: '',
+    date: today(),
+    departureTime: '08:00',
+    totalSeats: 45,
+    selectedDriverKey: '',
+  }
+  newTripError.value = ''
+  try {
+    const [routes, buses] = await Promise.all([
+      routeService.getByCompany(auth.companyId.value),
+      busService.getAll({ companyId: auth.companyId.value, depotId: auth.depotId.value }),
+    ])
+    newTripRoutes.value = routes.filter(r => r.isActive !== false)
+    newTripBuses.value = buses.filter(b => b.isActive !== false)
+  } catch {
+    newTripError.value = 'Failed to load routes and buses.'
+  }
+}
+
+async function submitNewTrip() {
+  newTripError.value = ''
+  if (!newTripForm.value.routeId || !newTripForm.value.busId || !newTripForm.value.date || !newTripForm.value.departureTime) {
+    newTripError.value = 'Please fill route, bus, date and departure time.'
+    return
+  }
+  creatingTrip.value = true
+  try {
+    const companyId = auth.companyId.value
+    const depotId = auth.depotId.value
+    const bus = newTripBuses.value.find(b => b.id === newTripForm.value.busId)
+    const schedule = await scheduleService.create({
+      routeId: newTripForm.value.routeId,
+      companyId,
+      depotId,
+      busId: newTripForm.value.busId,
+      busPlate: bus?.plateNumber || bus?.plate || null,
+      date: newTripForm.value.date,
+      departureTime: newTripForm.value.departureTime,
+      totalSeats: newTripForm.value.totalSeats || 45,
+      status: 'scheduled',
+      isActive: true,
+    })
+    const selected = availableDriversWithWorkers.value.find(d => d.driverUserId === newTripForm.value.selectedDriverKey)
+    if (selected) {
+      await scheduleService.patch(schedule.id, {
+        driverId: selected.driverUserId,
+        driverName: selected.driverName,
+        workerId: selected.workerUserId,
+        workerName: selected.workerName,
+      })
+      const driverDoc = await driverService.getById(selected.driverDocId)
+      const workerDoc = await workerService.getById(selected.workerDocId)
+      await Promise.all([
+        driverService.patch(selected.driverDocId, { assignedScheduleIds: [...(driverDoc.assignedScheduleIds || []), schedule.id] }),
+        workerService.patch(selected.workerDocId, { assignedScheduleIds: [...(workerDoc.assignedScheduleIds || []), schedule.id] }),
+      ])
+    }
+    newTripModal.value = false
+    await loadTrips()
+  } catch (e) {
+    newTripError.value = e.message || 'Failed to create trip.'
+  } finally {
+    creatingTrip.value = false
   }
 }
 
@@ -264,6 +429,37 @@ onMounted(loadTrips)
 </script>
 
 <style scoped>
+.trips-header {
+  margin-bottom: 16px;
+}
+.btn-new-trip {
+  padding: 10px 20px;
+  background: #22c55e;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-new-trip:hover { background: #16a34a; }
+.trips-section .trips-header { margin-bottom: 12px; }
+.modal-card-wide { max-width: 480px; }
+.modal-field input {
+  width: 100%;
+  padding: 12px 14px;
+  background: #141414;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.85);
+  font-size: 14px;
+  outline: none;
+}
+.modal-field input:focus { border-color: #22c55e; }
+
 .trips-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

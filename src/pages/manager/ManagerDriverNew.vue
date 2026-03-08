@@ -10,15 +10,23 @@
     <div v-if="created" class="success-card">
       <div class="success-icon"><i class="fas fa-check-circle"></i></div>
       <h2>Driver Created</h2>
-      <p>Share these credentials with the driver:</p>
+      <p>Share these credentials with the driver and assistant:</p>
       <div class="credentials">
         <div class="cred-row">
-          <span class="cred-label">Username</span>
+          <span class="cred-label">Driver — Username</span>
           <span class="cred-value">{{ createdCreds.username }}</span>
         </div>
         <div class="cred-row">
-          <span class="cred-label">Temp Password</span>
+          <span class="cred-label">Driver — Temp Password</span>
           <span class="cred-value">{{ createdCreds.password }}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">Assistant — Username</span>
+          <span class="cred-value">{{ createdCreds.workerUsername }}</span>
+        </div>
+        <div class="cred-row">
+          <span class="cred-label">Assistant — Temp Password</span>
+          <span class="cred-value">{{ createdCreds.workerPassword }}</span>
         </div>
       </div>
       <div class="success-actions">
@@ -74,6 +82,30 @@
           <label>Monthly Salary (RWF)</label>
           <input v-model.number="form.monthlySalary" type="number" required placeholder="150000" min="0" />
         </div>
+        <div class="field full-width">
+          <label class="section-label"><i class="fas fa-user-friends"></i> Assistant (Worker) — required</label>
+          <p class="field-hint">Each driver has one permanent assistant. Create their account below.</p>
+        </div>
+        <div class="field">
+          <label>Assistant First Name</label>
+          <input v-model="form.workerFirstName" type="text" required placeholder="Jane" />
+        </div>
+        <div class="field">
+          <label>Assistant Last Name</label>
+          <input v-model="form.workerLastName" type="text" required placeholder="Doe" />
+        </div>
+        <div class="field">
+          <label>Assistant Phone</label>
+          <input v-model="form.workerPhone" type="tel" required placeholder="+250 7XX XXX XXX" />
+        </div>
+        <div class="field">
+          <label>Assistant Username</label>
+          <input v-model="form.workerUsername" type="text" required placeholder="jane.doe" />
+        </div>
+        <div class="field">
+          <label>Assistant Temp Password</label>
+          <input v-model="form.workerTempPassword" type="text" required placeholder="Min 6 characters" minlength="6" />
+        </div>
       </div>
 
       <p v-if="error" class="form-error"><i class="fas fa-exclamation-circle"></i> {{ error }}</p>
@@ -92,6 +124,7 @@ import PortalLayout from '../../components/shared/PortalLayout.vue'
 import { useAuth } from '../../composables/useAuth.js'
 import { userService } from '../../services/userService.js'
 import { driverService } from '../../services/driverService.js'
+import { workerService } from '../../services/workerService.js'
 import { busService } from '../../services/busService.js'
 import { salaryService } from '../../services/salaryService.js'
 
@@ -123,6 +156,11 @@ const form = ref({
   username: '',
   tempPassword: '',
   monthlySalary: '',
+  workerFirstName: '',
+  workerLastName: '',
+  workerPhone: '',
+  workerUsername: '',
+  workerTempPassword: '',
 })
 
 const availableBuses = ref([])
@@ -164,7 +202,7 @@ async function handleSubmit() {
 
     const selectedBus = availableBuses.value.find(b => b.id === form.value.busId)
 
-    await driverService.create({
+    const driverDoc = await driverService.create({
       userId: user.id,
       companyId,
       depotId,
@@ -173,6 +211,33 @@ async function handleSubmit() {
       busId: form.value.busId || null,
       busPlate: selectedBus?.plateNumber || null,
       status: 'active',
+      createdAt: now,
+    })
+
+    const workerUser = await userService.create({
+      firstName: form.value.workerFirstName,
+      lastName: form.value.workerLastName,
+      phone: form.value.workerPhone,
+      username: form.value.workerUsername,
+      password: form.value.workerTempPassword,
+      role: 'worker',
+      companyId,
+      depotId,
+      status: 'active',
+      mustChangePassword: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+
+    await workerService.create({
+      userId: workerUser.id,
+      driverId: driverDoc.id,
+      companyId,
+      depotId,
+      name: `${form.value.workerFirstName} ${form.value.workerLastName}`,
+      phone: form.value.workerPhone,
+      status: 'active',
+      isActive: true,
       createdAt: now,
     })
 
@@ -193,7 +258,12 @@ async function handleSubmit() {
       await busService.patch(form.value.busId, { driverId: user.id })
     }
 
-    createdCreds.value = { username: form.value.username, password: form.value.tempPassword }
+    createdCreds.value = {
+      username: form.value.username,
+      password: form.value.tempPassword,
+      workerUsername: form.value.workerUsername,
+      workerPassword: form.value.workerTempPassword,
+    }
     created.value = true
   } catch (e) {
     error.value = e.message || 'Failed to create driver. Please try again.'
@@ -206,9 +276,11 @@ function resetForm() {
   form.value = {
     firstName: '', lastName: '', phone: '', licenseNumber: '',
     licenseExpiry: '', busId: '', username: '', tempPassword: '', monthlySalary: '',
+    workerFirstName: '', workerLastName: '', workerPhone: '', workerUsername: '', workerTempPassword: '',
   }
   created.value = false
   error.value = ''
+  createdCreds.value = { username: '', password: '', workerUsername: '', workerPassword: '' }
   loadBuses()
 }
 
@@ -242,6 +314,9 @@ onMounted(loadBuses)
   gap: 18px;
   margin-bottom: 24px;
 }
+.full-width { grid-column: 1 / -1; }
+.section-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+.field-hint { font-size: 12px; color: rgba(255,255,255,0.35); margin: 0 0 8px; }
 
 .field label {
   display: block;
