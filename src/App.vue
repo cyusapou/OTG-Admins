@@ -1,5 +1,6 @@
 <template>
   <router-view />
+  <AIChat />
 </template>
 
 <script setup>

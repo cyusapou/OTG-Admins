@@ -80,4 +80,5 @@ const router = createRouter({
   routes,
 })
 
-createApp(App).use(router).mount('#app')
+import { createPinia } from 'pinia'
+createApp(App).use(createPinia()).use(router).mount('#app')
