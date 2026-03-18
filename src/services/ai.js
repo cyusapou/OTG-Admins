@@ -3,6 +3,7 @@ import axios from 'axios'
 // For now, simple with optional token from localStorage
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const GEMINI_API_KEY = 'AIzaSyCeQBlgEW8Ql1LCg3bcgh0lRrWZ7mOXx04'
 
 const aiService = axios.create({
   baseURL: `${BASE}/ai`,
