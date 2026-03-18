@@ -14,9 +14,17 @@ const aiService = axios.create({
 })
 
 aiService.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  const sessionData = localStorage.getItem('otg_session')
+  if (sessionData) {
+    try {
+      const session = JSON.parse(sessionData)
+      const token = session.session?.id
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    } catch (e) {
+      // Invalid session data, continue without token
+    }
   }
   return config
 })

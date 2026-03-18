@@ -48,10 +48,11 @@ export function useAuth() {
       localStorage.setItem(SESSION_KEY, JSON.stringify(data))
       session.value = data
 
-      await auditLogService.log(
+      // Fire-and-forget audit log - never fail login
+      auditLogService.log(
         result.user.id, result.user.role, result.user.companyId,
         'login', 'session', result.session.id, `${result.user.firstName} logged in`
-      )
+      ).catch(() => {})
 
       return true
     } catch {
