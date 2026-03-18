@@ -2,8 +2,10 @@ import axios from 'axios'
 // For admins, assume global window.apiBase or localStorage token - adjust if store exists
 // For now, simple with optional token from localStorage
 
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
 const aiService = axios.create({
-  baseURL: '/api/v1/ai',
+  baseURL: `${BASE}/ai`,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
